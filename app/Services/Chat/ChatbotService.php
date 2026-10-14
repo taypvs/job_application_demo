@@ -1,0 +1,235 @@
+<?php
+
+namespace App\Services\Chat;
+
+use App\Models\ChatMessage;
+use App\Models\DocumentChunk;
+use App\Models\User;
+use App\Services\Ai\OpenAiClient;
+use App\Services\Ai\PineconeClient;
+use App\Services\Ai\PromptLibrary;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+
+class ChatbotService
+{
+    public function __construct(
+        private readonly OpenAiClient $openai,
+        private readonly PineconeClient $pinecone,
+        private readonly PromptLibrary $prompts,
+    ) {}
+
+    /**
+     * @return list<array{role: string, content: string}>
+     */
+    public function history(User $user): array
+    {
+        return $user->chatMessages()
+            ->latest('id')
+            ->limit(30)
+            ->get()
+            ->sortBy('id')
+            ->map(fn (ChatMessage $message) => [
+                'role' => $message->role,
+                'content' => $message->content,
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function reply(User $user, string $message): string
+    {
+        $this->store($user, 'user', $message);
+
+        try {
+            $reply = $this->answer($user, $message);
+        } catch (\Throwable $e) {
+            report($e);
+            $reply = '回答の生成に失敗しました。時間をおいて再度お試しください。';
+        }
+
+        $this->store($user, 'assistant', $reply);
+
+        return $reply;
+    }
+
+    private function answer(User $user, string $message): string
+    {
+        if (DocumentChunk::query()->doesntExist()) {
+            return 'まだ参照資料が登録されていません。管理者に資料のアップロードを依頼してください。';
+        }
+
+        if ($this->openai->configured() && $this->pinecone->configured()) {
+            return $this->answerWithPinecone($user, $message);
+        }
+
+        $ranked = $this->rankLocal($message);
+        if ($this->openai->configured()) {
+            return $this->answerWithContext($user, $message, $this->contextFromChunks($ranked->take(4)));
+        }
+
+        return $this->extractive($ranked);
+    }
+
+    private function answerWithPinecone(User $user, string $message): string
+    {
+        $log = Log::channel('daily');
+        $vectors = $this->openai->embedMany([$message]);
+        $vector = $vectors[0] ?? [];
+        $log->info('chatbot.pinecone.embed', [
+            'user_id' => $user->id,
+            'question' => $message,
+            'vector_count' => count($vectors),
+            'dimensions' => count($vector),
+        ]);
+
+        $topK = max(1, (int) config('chatbot.top_k', 5));
+        $minScore = (float) config('chatbot.min_score', 0);
+        $matches = $this->pinecone->query($vector, $topK);
+        $log->info('chatbot.pinecone.matches', [
+            'user_id' => $user->id,
+            'top_k' => $topK,
+            'min_score' => $minScore,
+            'count' => count($matches),
+            'matches' => array_map(fn (array $match): array => [
+                'id' => $match['id'] ?? null,
+                'score' => $match['score'] ?? null,
+                'kept' => (float) ($match['score'] ?? 0) >= $minScore,
+                'title' => $match['metadata']['title'] ?? null,
+                'text' => (string) ($match['metadata']['text'] ?? ''),
+            ], $matches),
+        ]);
+
+        $blocks = [];
+
+        foreach ($matches as $match) {
+            if ((float) ($match['score'] ?? 0) < $minScore) {
+                continue;
+            }
+
+            $text = (string) ($match['metadata']['text'] ?? '');
+            $title = (string) ($match['metadata']['title'] ?? '資料');
+            if ($text !== '') {
+                $blocks[] = "[{$title}]\n{$text}";
+            }
+        }
+
+        if ($blocks === []) {
+            $fallback = $this->contextFromChunks($this->rankLocal($message)->take(3));
+            $blocks[] = $fallback;
+            $log->info('chatbot.pinecone.fallback', [
+                'user_id' => $user->id,
+                'context' => $fallback,
+            ]);
+        }
+
+        $context = implode("\n\n", $blocks);
+        $log->info('chatbot.pinecone.context', [
+            'user_id' => $user->id,
+            'block_count' => count($blocks),
+            'context' => $context,
+        ]);
+
+        $reply = $this->answerWithContext($user, $message, $context);
+        $log->info('chatbot.pinecone.reply', [
+            'user_id' => $user->id,
+            'reply' => $reply,
+        ]);
+
+        return $reply;
+    }
+
+    private function answerWithContext(User $user, string $message, string $context): string
+    {
+        return $this->openai->chat(
+            $this->prompts->system('chatbot'),
+            $this->prompts->user('chatbot', [
+                'context' => mb_substr($context !== '' ? $context : '（該当資料なし）', 0, 6000),
+                'history' => $this->historyText($user),
+                'question' => $message,
+            ]),
+            false,
+            0.3,
+        );
+    }
+
+    /**
+     * @param  Collection<int, DocumentChunk>  $ranked
+     */
+    private function extractive(Collection $ranked): string
+    {
+        $top = $ranked->filter(fn (DocumentChunk $chunk) => ($chunk->rank_score ?? 0) > 0)->take(3)->values();
+        if ($top->isEmpty()) {
+            return '登録資料の中に、ご質問に直接対応する記述が見つかりませんでした。別の言い方でお試しください。';
+        }
+
+        $parts = ['資料をもとに、関連する記載をまとめます。'];
+        foreach ($top as $chunk) {
+            $parts[] = "■ {$chunk->document?->title}\n{$chunk->content}";
+        }
+
+        return implode("\n\n", $parts);
+    }
+
+    /**
+     * @return Collection<int, DocumentChunk>
+     */
+    private function rankLocal(string $query): Collection
+    {
+        $terms = collect(preg_split('/[\s　、。,.!?？]+/u', mb_strtolower($query)) ?: [])
+            ->filter(fn ($term) => mb_strlen((string) $term) >= 2)
+            ->values();
+
+        return DocumentChunk::query()
+            ->with('document')
+            ->latest('id')
+            ->limit(200)
+            ->get()
+            ->map(function (DocumentChunk $chunk) use ($terms) {
+                $score = 0;
+                $haystack = mb_strtolower($chunk->content);
+                foreach ($terms as $term) {
+                    if (mb_stripos($haystack, (string) $term) !== false) {
+                        $score++;
+                    }
+                }
+                $chunk->rank_score = $score;
+
+                return $chunk;
+            })
+            ->sortByDesc('rank_score')
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, DocumentChunk>  $chunks
+     */
+    private function contextFromChunks(Collection $chunks): string
+    {
+        return $chunks
+            ->filter(fn (DocumentChunk $chunk) => ($chunk->rank_score ?? 0) > 0)
+            ->map(fn (DocumentChunk $chunk) => "[{$chunk->document?->title}]\n{$chunk->content}")
+            ->implode("\n\n");
+    }
+
+    private function historyText(User $user): string
+    {
+        $messages = $user->chatMessages()->latest('id')->limit(8)->get()->sortBy('id')->values();
+        if ($messages->count() <= 1) {
+            return '（なし）';
+        }
+
+        return $messages
+            ->slice(0, -1)
+            ->map(fn (ChatMessage $message) => ($message->role === 'assistant' ? 'アシスタント' : 'ユーザー').': '.$message->content)
+            ->implode("\n");
+    }
+
+    private function store(User $user, string $role, string $content): void
+    {
+        $user->chatMessages()->create([
+            'role' => $role,
+            'content' => $content,
+        ]);
+    }
+}
