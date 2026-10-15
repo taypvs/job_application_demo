@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\Storage\S3StorageService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
@@ -23,7 +23,9 @@ class CvExcelUploadTest extends TestCase
 
     public function test_excel_upload_reads_every_sheet_and_stores_the_cv(): void
     {
-        Storage::fake('s3');
+        $this->mock(S3StorageService::class, function ($mock): void {
+            $mock->shouldReceive('put')->once();
+        });
         config(['services.openai.key' => null]);
 
         $path = storage_path('framework/testing-cv.xlsx');
@@ -73,7 +75,6 @@ class CvExcelUploadTest extends TestCase
         $this->assertTrue(collect($cv->parsed_profile['skills'])->contains(
             fn (array $skill) => $skill['name'] === 'PHP',
         ));
-        Storage::disk('s3')->assertExists($cv->s3_key);
 
         @unlink($path);
     }

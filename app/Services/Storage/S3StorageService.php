@@ -2,7 +2,7 @@
 
 namespace App\Services\Storage;
 
-use Illuminate\Support\Facades\Storage;
+use App\Services\Aws\Aws_S3;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -10,23 +10,35 @@ class S3StorageService
 {
     public function put(string $key, string $contents, ?string $mime = null): void
     {
-        $options = [];
-        if ($mime) {
-            $options['mimetype'] = $mime;
+        $temporary = tempnam(sys_get_temp_dir(), 's3');
+        if ($temporary === false) {
+            throw new RuntimeException('ファイルの保存に失敗しました。S3の設定を確認してください。');
         }
 
         try {
-            Storage::disk('s3')->put($key, $contents, $options);
+            file_put_contents($temporary, $contents);
+            $result = Aws_S3::upload($temporary, $key, $mime ?: 'application/octet-stream', basename($key));
+            if (is_array($result) && ($result['status'] ?? true) === false) {
+                throw new RuntimeException((string) ($result['message'] ?? 's3 upload failed'));
+            }
+        } catch (RuntimeException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
             throw new RuntimeException('ファイルの保存に失敗しました。S3の設定を確認してください。');
+        } finally {
+            @unlink($temporary);
         }
     }
 
     public function delete(string $key): void
     {
         try {
-            Storage::disk('s3')->delete($key);
+            if (! Aws_S3::delete($key)) {
+                throw new RuntimeException('ファイルの削除に失敗しました。S3の設定を確認してください。');
+            }
+        } catch (RuntimeException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
             throw new RuntimeException('ファイルの削除に失敗しました。S3の設定を確認してください。');
@@ -36,7 +48,14 @@ class S3StorageService
     public function get(string $key): string
     {
         try {
-            return Storage::disk('s3')->get($key);
+            $result = Aws_S3::download($key);
+            if (! is_array($result) || ($result['status'] ?? false) !== true) {
+                throw new RuntimeException((string) ($result['message'] ?? 's3 download failed'));
+            }
+
+            return (string) $result['Body'];
+        } catch (RuntimeException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
             throw new RuntimeException('ファイルの取得に失敗しました。');

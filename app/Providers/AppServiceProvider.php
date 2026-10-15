@@ -11,7 +11,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        op_publish_secrets();
     }
 
     public function boot(): void

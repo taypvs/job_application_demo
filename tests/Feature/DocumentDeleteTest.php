@@ -6,10 +6,10 @@ use App\Enums\DocumentStatus;
 use App\Enums\UserRole;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
+use App\Services\Storage\S3StorageService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class DocumentDeleteTest extends TestCase
@@ -24,8 +24,9 @@ class DocumentDeleteTest extends TestCase
 
     public function test_admin_delete_removes_the_file_from_s3_and_pinecone(): void
     {
-        Storage::fake('s3');
-        Storage::disk('s3')->put('documents/handbook.pdf', 'handbook');
+        $this->mock(S3StorageService::class, function ($mock): void {
+            $mock->shouldReceive('delete')->once()->with('documents/handbook.pdf');
+        });
         config([
             'services.pinecone.key' => 'test-key',
             'services.pinecone.host' => 'https://pinecone.test',
@@ -62,7 +63,6 @@ class DocumentDeleteTest extends TestCase
 
         $this->assertDatabaseMissing('knowledge_documents', ['id' => $document->id]);
         $this->assertDatabaseCount('document_chunks', 0);
-        Storage::disk('s3')->assertMissing('documents/handbook.pdf');
         Http::assertSent(function ($request) use ($document) {
             return $request->url() === 'https://pinecone.test/vectors/delete'
                 && $request['namespace'] === 'jobapply'
@@ -72,8 +72,9 @@ class DocumentDeleteTest extends TestCase
 
     public function test_document_stays_when_pinecone_delete_fails(): void
     {
-        Storage::fake('s3');
-        Storage::disk('s3')->put('documents/handbook.pdf', 'handbook');
+        $this->mock(S3StorageService::class, function ($mock): void {
+            $mock->shouldNotReceive('delete');
+        });
         config([
             'services.pinecone.key' => 'test-key',
             'services.pinecone.host' => 'https://pinecone.test',
@@ -105,6 +106,5 @@ class DocumentDeleteTest extends TestCase
             ->assertSessionHasErrors('file');
 
         $this->assertDatabaseHas('knowledge_documents', ['id' => $document->id]);
-        Storage::disk('s3')->assertExists('documents/handbook.pdf');
     }
 }
