@@ -73,7 +73,7 @@ class JobController extends Controller
             return back()->withErrors(['apply' => $e->getMessage()])->withInput();
         }
 
-        return back()->with('status', '応募を受け付けました。受信箱にも控えを送っています。');
+        return back()->with('status', __('messages.jobs.applied'));
     }
 
     public function analyze(JobPosting $jobPosting): RedirectResponse
@@ -85,7 +85,7 @@ class JobController extends Controller
         }
 
         return back()
-            ->with('status', 'マッチング分析が完了しました。')
+            ->with('status', __('messages.jobs.analyzed'))
             ->with('match_analysis_id', $analysis->id);
     }
 

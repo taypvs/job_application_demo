@@ -45,7 +45,7 @@ class ChatbotService
             $reply = $this->answer($user, $message);
         } catch (\Throwable $e) {
             report($e);
-            $reply = '回答の生成に失敗しました。時間をおいて再度お試しください。';
+            $reply = __('messages.chat.failed');
         }
 
         $this->store($user, 'assistant', $reply);
@@ -56,7 +56,7 @@ class ChatbotService
     private function answer(User $user, string $message): string
     {
         if (DocumentChunk::query()->doesntExist()) {
-            return 'まだ参照資料が登録されていません。管理者に資料のアップロードを依頼してください。';
+            return __('messages.chat.no_documents');
         }
 
         if ($this->openai->configured() && $this->pinecone->configured()) {
@@ -160,10 +160,10 @@ class ChatbotService
     {
         $top = $ranked->filter(fn (DocumentChunk $chunk) => ($chunk->rank_score ?? 0) > 0)->take(3)->values();
         if ($top->isEmpty()) {
-            return '登録資料の中に、ご質問に直接対応する記述が見つかりませんでした。別の言い方でお試しください。';
+            return __('messages.chat.no_match');
         }
 
-        $parts = ['資料をもとに、関連する記載をまとめます。'];
+        $parts = [__('messages.chat.extractive_intro')];
         foreach ($top as $chunk) {
             $parts[] = "■ {$chunk->document?->title}\n{$chunk->content}";
         }

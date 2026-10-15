@@ -21,9 +21,6 @@ class LoginRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'email' => 'メールアドレス',
-            'password' => 'パスワード',
-        ];
+        return __('messages.attributes.login');
     }
 }

@@ -25,17 +25,17 @@ class InterviewSchedulerService
     public function assign(Application $application): Interview
     {
         if (in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Rejected], true)) {
-            throw new RuntimeException('選考が終了している応募には面接を設定できません。');
+            throw new RuntimeException(__('messages.interviews.closed'));
         }
 
         if ($application->interview()->exists()) {
-            throw new RuntimeException('すでに面接が設定されています。');
+            throw new RuntimeException(__('messages.interviews.already_set'));
         }
 
         $application->loadMissing('jobPosting.department');
         $departmentId = $application->jobPosting?->department_id;
         if (! $departmentId) {
-            throw new RuntimeException('求人に担当部署が設定されていません。');
+            throw new RuntimeException(__('messages.interviews.no_department'));
         }
 
         $managers = Manager::query()
@@ -45,12 +45,12 @@ class InterviewSchedulerService
             ->get();
 
         if ($managers->isEmpty()) {
-            throw new RuntimeException('この職種を担当する部署のマネージャーが見つかりません。');
+            throw new RuntimeException(__('messages.interviews.no_manager'));
         }
 
         $slot = $this->earliestSlot($managers);
         if ($slot === null) {
-            throw new RuntimeException('空いている面接枠が見つかりませんでした。マネージャーの勤務時間を確認してください。');
+            throw new RuntimeException(__('messages.interviews.no_slot'));
         }
 
         return DB::transaction(function () use ($application, $slot) {
@@ -63,7 +63,7 @@ class InterviewSchedulerService
                 ->exists();
 
             if ($overlaps) {
-                throw new RuntimeException('選んだ枠が埋まりました。もう一度確定してください。');
+                throw new RuntimeException(__('messages.interviews.slot_taken'));
             }
 
             $interview = Interview::create([

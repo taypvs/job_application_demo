@@ -20,8 +20,6 @@ class ChatMessageRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'message' => 'メッセージ',
-        ];
+        return __('messages.attributes.chat');
     }
 }

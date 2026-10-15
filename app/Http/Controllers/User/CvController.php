@@ -33,9 +33,9 @@ class CvController extends Controller
 
         $message = $cv->extracted_text
             ? ($cv->parse_engine === 'openai'
-                ? '職務経歴書を保存し、AIで内容を整理しました。'
-                : '職務経歴書を保存し、本文からスキルを抽出しました。')
-            : 'ファイルは保存しましたが、本文を抽出できませんでした。テキストが入ったPDF、Word、またはExcelをご利用ください。';
+                ? __('messages.cv.saved_ai')
+                : __('messages.cv.saved_local'))
+            : __('messages.cv.saved_no_text');
 
         return back()->with('status', $message);
     }

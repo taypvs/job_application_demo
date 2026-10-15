@@ -22,7 +22,7 @@ class LoginController extends Controller
     {
         if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             throw ValidationException::withMessages([
-                'email' => 'メールアドレスまたはパスワードが正しくありません。',
+                'email' => __('messages.auth.failed'),
             ]);
         }
 
@@ -36,8 +36,8 @@ class LoginController extends Controller
 
             $url = Portal::baseUrl($user->isAdmin() ? Portal::ADMIN : Portal::CANDIDATE);
             $message = $user->isAdmin()
-                ? '管理者アカウントは管理画面からログインしてください: '.$url
-                : '候補者アカウントは求人サイトからログインしてください: '.$url;
+                ? __('messages.auth.admin_portal', ['url' => $url])
+                : __('messages.auth.candidate_portal', ['url' => $url]);
 
             throw ValidationException::withMessages([
                 'email' => $message,

@@ -20,8 +20,6 @@ class ApplyJobRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'message' => '志望動機',
-        ];
+        return __('messages.attributes.apply');
     }
 }

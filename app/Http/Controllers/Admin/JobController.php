@@ -35,7 +35,7 @@ class JobController extends Controller
 
         return redirect()
             ->route('admin.jobs.edit', $job)
-            ->with('status', '求人を作成しました。');
+            ->with('status', __('messages.jobs.created'));
     }
 
     public function edit(JobPosting $jobPosting): View
@@ -53,6 +53,6 @@ class JobController extends Controller
 
         return redirect()
             ->route('admin.jobs.edit', $jobPosting)
-            ->with('status', '求人を更新しました。');
+            ->with('status', __('messages.jobs.updated'));
     }
 }

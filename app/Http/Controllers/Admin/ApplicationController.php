@@ -52,7 +52,10 @@ class ApplicationController extends Controller
 
         return back()->with(
             'status',
-            '面接を設定し、候補者の受信箱へ通知しました。'.$interview->starts_at->translatedFormat('n月j日 H:i').' / '.$interview->manager->name,
+            __('messages.applications.interview_set', [
+                'when' => $interview->starts_at->translatedFormat('n月j日 H:i'),
+                'manager' => $interview->manager->name,
+            ]),
         );
     }
 
@@ -70,8 +73,8 @@ class ApplicationController extends Controller
         return back()->with(
             'status',
             $alreadyDecided
-                ? '合否は確定済みです。'
-                : '選考ステータスを更新し、候補者へ通知しました。',
+                ? __('messages.applications.decision_already')
+                : __('messages.applications.decision_updated'),
         );
     }
 }

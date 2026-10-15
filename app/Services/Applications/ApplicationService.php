@@ -18,7 +18,7 @@ class ApplicationService
     {
         $cv = $user->currentCv();
         if (! $cv) {
-            throw new RuntimeException('応募の前に職務経歴書をアップロードしてください。');
+            throw new RuntimeException(__('messages.applications.cv_required'));
         }
 
         $exists = Application::query()
@@ -27,7 +27,7 @@ class ApplicationService
             ->exists();
 
         if ($exists) {
-            throw new RuntimeException('この求人には既に応募済みです。');
+            throw new RuntimeException(__('messages.applications.already_applied'));
         }
 
         $application = Application::create([
@@ -64,12 +64,12 @@ class ApplicationService
     public function decide(Application $application, ApplicationStatus $status): void
     {
         if (! in_array($status, [ApplicationStatus::Passed, ApplicationStatus::Rejected], true)) {
-            throw new RuntimeException('この操作では合否のみ更新できます。');
+            throw new RuntimeException(__('messages.applications.decision_only'));
         }
 
         if (in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Rejected], true)) {
             if ($application->status !== $status) {
-                throw new RuntimeException('合否は確定済みのため、変更できません。');
+                throw new RuntimeException(__('messages.applications.decision_locked'));
             }
 
             return;

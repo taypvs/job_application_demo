@@ -5,7 +5,7 @@
 @section('content')
     <header class="page-head">
         <h1>職務経歴書</h1>
-        <p class="lead">PDF、Word（.docx）、Excel（.xlsx / .xls）、テキストをS3へ保存します。Excelはすべてのシートを読み、本文を抽出してスキルを整理し、求人とのマッチングに使います。</p>
+        <p class="lead">PDF、Word（.docx）、Excel（.xlsx / .xls）、テキストをアップロードできます。</p>
     </header>
 
     <section class="card">
@@ -23,12 +23,12 @@
         <section class="card">
             <h2>現在のファイル</h2>
             <p><a href="{{ route('cvs.download', $cv) }}">{{ $cv->original_name }}</a></p>
-            <p class="hint">アップロード {{ $cv->created_at->translatedFormat('Y年n月j日 H:i') }} / 解析: {{ $cv->parse_engine === 'openai' ? 'OpenAI' : 'キーワード抽出' }}</p>
+            <p class="hint">アップロード {{ $cv->created_at->translatedFormat('Y年n月j日 H:i') }}</p>
             @if ($cv->parsed_profile['summary'] ?? null)
                 <h3>要約</h3>
                 <p>{{ $cv->parsed_profile['summary'] }}</p>
             @endif
-            <h3>抽出スキル</h3>
+            <h3>スキル</h3>
             <ul class="chips">
                 @forelse ($cv->parsed_profile['skills'] ?? [] as $skill)
                     <li>{{ $skill['name'] }}@if(!empty($skill['years']))（{{ $skill['years'] }}年）@endif</li>
@@ -37,7 +37,7 @@
                 @endforelse
             </ul>
             @if (! $cv->extracted_text)
-                <p class="hint">本文を抽出できませんでした。画像だけのPDFは解析できません。</p>
+                <p class="hint">このファイルは読み取れませんでした。文字が入ったPDF、Word、Excel、テキストをご利用ください。</p>
             @endif
         </section>
     @else

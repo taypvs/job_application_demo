@@ -1,52 +1,83 @@
 # 求人管理 Kanri
 
-Ứng viên và quản trị viên dùng chung một hệ thống Laravel. Giao diện trên web là tiếng Nhật. MySQL giữ dữ liệu nghiệp vụ. Object storage dùng API S3; trong Docker đó là [Silo](https://github.com/pgsty/silo) (tương thích MinIO) vì image chính thức của MinIO không còn pull công khai.
+候補者と求人管理側が使う採用デモです。画面は日本語です。データは MySQL、アップロードファイルは S3 互換ストレージに保存します。ローカルの Docker では [Silo](https://github.com/pgsty/silo)（MinIO 互換）を使います。
 
-## Chạy
+候補者サイトと求人管理サイトは別ポートです。同じ `localhost` ではブラウザがポートごとに Cookie を分けないため、`candidate_session` と `admin_session` を使い分けています。両方に同時ログインできます。
+
+## テストアカウント
+
+パスワードはすべて `password` です。
+
+| 役割 | URL | メール |
+| --- | --- | --- |
+| 候補者 | http://localhost:8080 | user@example.com |
+| 候補者（面接予定あり） | http://localhost:8080 | yamada@example.com |
+| 求人管理 | http://localhost:8081 | admin@example.com |
+
+新規登録は候補者サイトだけです。求人管理アカウントは候補者サイトからログインできません。
+
+## ローカルでの起動
+
+Docker が動いている状態で、プロジェクト直下で次を実行します。
 
 ```bash
 make init
 ```
 
-Ứng viên và quản trị chạy hai cổng để đăng nhập song song không mất session. Trình duyệt không tách cookie theo cổng trên cùng `localhost`, nên mỗi cổng dùng một cookie riêng (`candidate_session` và `admin_session`).
+初回はイメージのビルド、マイグレーション、S3 バケット作成、デモデータの投入まで行います。
 
-| Vai trò | URL | Email | Mật khẩu |
-| --- | --- | --- | --- |
-| Ứng viên | http://localhost:8080 | user@example.com | password |
-| Ứng viên đã có lịch phỏng vấn | http://localhost:8080 | yamada@example.com | password |
-| Quản trị | http://localhost:8081 | admin@example.com | password |
+| コマンド | 内容 |
+| --- | --- |
+| `make up` | コンテナを起動する |
+| `make down` | コンテナを停止する |
+| `make seed` | デモデータを再投入する |
+| `make fresh` | DB を作り直してデモデータを投入する |
+| `make test` | テストを実行する（メモリ上の SQLite。デモ DB は触らない） |
+| `make shell` | アプリコンテナのシェル |
+| `make logs` | ログを表示する |
+| `make reset` | ボリュームを削除して最初から作り直す |
 
-Lệnh khác: `make seed`, `make fresh`, `make test`, `make shell`, `make logs`, `make down`. `make reset` xóa volume Docker rồi dựng lại. `make test` dùng SQLite trong bộ nhớ, không đụng database demo.
+関連サービス:
 
-Console S3: http://localhost:9001 (minio / minio12345). API: http://localhost:9000. MySQL từ máy host: `127.0.0.1:3307`, database `jobapply`, user `jobapply`, password `secret`.
+| 用途 | 接続 |
+| --- | --- |
+| 候補者サイト | http://localhost:8080 |
+| 求人管理サイト | http://localhost:8081 |
+| S3 コンソール | http://localhost:9001 （minio / minio12345） |
+| S3 API | http://localhost:9000 |
+| MySQL（ホストから） | `127.0.0.1:3307` / database `jobapply` / user `jobapply` / password `secret` |
 
-## Biến môi trường
+## このサイトでできること
 
-S3 trỏ vào MinIO qua `AWS_*` trong `.env`. OpenAI và Pinecone để trống thì hệ thống vẫn chạy:
+**候補者サイト（8080）**
 
-- Phân tích matching dùng đối chiếu kỹ năng trong CV với skill của tin tuyển dụng.
-- Chatbot tìm đoạn văn đã lưu trong MySQL.
-- Khi có `OPENAI_API_KEY`, CV được cấu trúc hóa và matching do model viết.
-- Khi có cả `OPENAI_API_KEY` và `PINECONE_HOST` (index 1536 chiều, khớp `text-embedding-3-small`), tài liệu được embed và upsert vào namespace `jobapply`.
+- 求人の一覧と詳細を見る
+- 職務経歴書をアップロードする（PDF、Word の .docx、Excel の .xlsx / .xls、テキスト）
+- 求人に応募する。応募には職務経歴書が必要
+- 求人詳細でマッチング分析を実行する。結果はその場だけ表示し、再読み込み後は出さない
+- 応募状況を確認する
+- 受信箱で応募受付、面接案内、合否連絡を読む（メール送信ではなく、サイト内の受信箱）
+- チャットで、求人管理側が登録した資料について質問する
 
-Prompt nằm ở `config/prompts.php`, đọc qua `App\Services\Ai\PromptLibrary`.
+**求人管理サイト（8081）**
 
-## Vì sao xếp lịch phỏng vấn không dùng AI agent
+- 求人を作成・編集する（会社、部署、必須スキル、歓迎スキル、公開状態）
+- 応募一覧と応募詳細を見る
+- 面接枠を自動で割り当てる。部署のマネージャーの勤務時間から、最も早い空きを選ぶ
+- 合格または不合格を確定する。一度決めると、もう一方には変更できない
+- 面接カレンダーを見る
+- チャット用の資料を登録する（PDF、Word の .docx、テキスト、または URL）
 
-Việc này là quy tắc cố định: lấy manager của bộ phận gắn với tin, trừ các khung đã có lịch, chọn khung sớm nhất trong giờ làm việc. Code thường trong `InterviewSchedulerService` cho kết quả ổn định và giải thích được. Agent chỉ thêm độ trễ và rủi ro chọn nhầm giờ. Sau khi gán lịch, hệ thống ghi một tin vào hộp thư trong tài khoản ứng viên.
+面接の割り当ては AI ではありません。対象部署のマネージャー、平日の勤務時間、既存の予定を突き合わせ、いちばん早い空き枠をコードで決めます。処理は `InterviewSchedulerService` です。
 
-## Database
+## AI の使い方
 
-Bảng queue sẵn có của Laravel tên `jobs` được giữ nguyên. Tin tuyển dụng nằm ở `job_postings`.
+OpenAI と Pinecone のキーが空でも、画面の操作自体は動きます。キーがあるときだけモデルを呼びます。プロンプトは `config/prompts.php` にあり、`App\Services\Ai\PromptLibrary` から読みます。
 
-- `users.role`: `candidate` hoặc `admin`.
-- `departments` và `managers`: bộ phận và người phỏng vấn. `manager_availabilities` là khung giờ lặp theo thứ (1 = thứ Hai … 5 = thứ Sáu).
-- `companies`: hồ sơ công ty dùng chung cho nhiều tin.
-- `job_postings`: nội dung tin (mô tả, lương theo yên, địa điểm, hình thức làm việc, trạng thái). `job_skills.category` là `required` hoặc `nice_to_have`.
-- `cvs`: file trên S3 (`s3_key`), `extracted_text`, và `parsed_profile` (JSON: summary, skills, experiences, education). `is_active` đánh dấu CV đang dùng.
-- `applications`: một ứng viên một tin. Status `applied`, `interview`, `rejected`, `passed`.
-- `match_analyses`: điểm, điểm mạnh, điểm yếu, việc cần cải thiện, và `engine` (`openai` hoặc `local`) để lần sau đọc lại không cần gọi model.
-- `interviews`: một buổi cho một hồ sơ, gắn manager và khoảng thời gian. Lịch đã `scheduled` bị loại khi tìm khung trống.
-- `mailbox_messages`: hộp thư trong tài khoản ứng viên (không phải email SMTP).
-- `knowledge_documents` và `document_chunks`: tài liệu admin upload. Chunk lưu nội dung để chat vẫn trả lời khi Pinecone chưa cấu hình. `pinecone_id` nối với vector.
-- `chat_messages`: lịch sử chatbot của ứng viên.
+| 機能 | キーがあるとき | キーがないとき |
+| --- | --- | --- |
+| 職務経歴書の読み取り | `cv_structuring` で要約・スキル・職歴・学歴に整理する | 本文からスキル名を拾う |
+| 求人とのマッチング分析 | `job_matching` で点数、強み、弱み、改善点を書く | 求人スキルと経歴のキーワード一致で点数を出す |
+| 資料チャット | 本文をベクトル化し Pinecone の namespace `jobapply` から探す。回答は `chatbot` で生成する | MySQL に保存した本文を検索する。OpenAI だけある場合は、その本文を渡して回答する |
+
+マッチング結果は `match_analyses` に残しますが、候補者の求人詳細ではクリック直後だけ表示します。資料の埋め込みは `text-embedding-3-small`（1536 次元）に合わせた Pinecone インデックスが必要です。`OPENAI_API_KEY` と `PINECONE_HOST` の両方が揃ったときだけ Pinecone へ登録します。

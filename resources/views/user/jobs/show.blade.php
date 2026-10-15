@@ -106,7 +106,7 @@
                 @csrf
                 <button class="btn btn-ghost" type="submit" data-loading="分析中…">AIマッチング分析</button>
             </form>
-            <p class="hint">アップロード済みの職務経歴書と、この求人の必須・歓迎スキルを比較します。</p>
+            <p class="hint">アップロード済みの職務経歴書で分析します。</p>
 
             @if ($analysis)
                 <div class="analysis">

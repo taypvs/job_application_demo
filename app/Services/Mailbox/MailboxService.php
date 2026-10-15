@@ -51,8 +51,11 @@ class MailboxService
 
         $this->send(
             $application->user,
-            '応募を受け付けました',
-            "{$job->company?->name}の「{$job->title}」への応募を受け付けました。\n選考状況は「応募状況」から確認できます。",
+            __('messages.mailbox.applied_subject'),
+            __('messages.mailbox.applied_body', [
+                'company' => $job->company?->name,
+                'title' => $job->title,
+            ]),
             $application,
         );
     }
@@ -67,15 +70,15 @@ class MailboxService
 
         $this->send(
             $application->user,
-            '面接日程のご案内',
-            implode("\n", [
-                "{$job->company?->name}の「{$job->title}」について、面接日程が確定しました。",
-                '',
-                "日時: {$when}",
-                "担当: {$interview->manager->name}（{$interview->manager->department->name} / {$interview->manager->title}）",
-                "形式: {$interview->format}",
-                '',
-                '当日の接続情報は、前日までにこの受信箱でご連絡します。',
+            __('messages.mailbox.interview_subject'),
+            __('messages.mailbox.interview_body', [
+                'company' => $job->company?->name,
+                'title' => $job->title,
+                'when' => $when,
+                'manager' => $interview->manager->name,
+                'department' => $interview->manager->department->name,
+                'role' => $interview->manager->title,
+                'format' => $interview->format,
             ]),
             $application,
         );
@@ -88,12 +91,15 @@ class MailboxService
         $label = $application->status->label();
 
         $body = match ($application->status) {
-            ApplicationStatus::Passed => "「{$job->title}」の選考の結果、次のステップへお進みいただくこととなりました。\n担当者より改めてご連絡します。",
-            ApplicationStatus::Rejected => "「{$job->title}」の選考の結果、今回は見送りとさせていただきます。\nご応募ありがとうございました。",
-            default => "「{$job->title}」の選考ステータスが「{$label}」に更新されました。",
+            ApplicationStatus::Passed => __('messages.mailbox.passed_body', ['title' => $job->title]),
+            ApplicationStatus::Rejected => __('messages.mailbox.rejected_body', ['title' => $job->title]),
+            default => __('messages.mailbox.updated_body', [
+                'title' => $job->title,
+                'status' => $label,
+            ]),
         };
 
-        $this->send($application->user, '選考結果のご連絡', $body, $application);
+        $this->send($application->user, __('messages.mailbox.decision_subject'), $body, $application);
     }
 
     private function send(User $user, string $subject, string $body, ?Application $application = null): MailboxMessage

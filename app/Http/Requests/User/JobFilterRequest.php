@@ -34,11 +34,6 @@ class JobFilterRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'position' => '職種',
-            'location' => '勤務地',
-            'salary' => '年収',
-            'keyword' => 'キーワード',
-        ];
+        return __('messages.attributes.job_filter');
     }
 }

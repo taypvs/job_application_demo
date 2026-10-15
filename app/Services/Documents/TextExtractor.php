@@ -18,8 +18,8 @@ class TextExtractor
             'docx' => $this->docx($path),
             'txt' => $this->plain($path),
             'xlsx', 'xls' => $this->excel($path),
-            'doc' => throw new RuntimeException('.doc 形式には対応していません。.docx でアップロードしてください。'),
-            default => throw new RuntimeException('対応していないファイル形式です。'),
+            'doc' => throw new RuntimeException(__('messages.files.doc_unsupported')),
+            default => throw new RuntimeException(__('messages.files.unsupported')),
         };
 
         return $this->clean($text);
@@ -34,7 +34,7 @@ class TextExtractor
                 ->throw();
         } catch (\Throwable $e) {
             report($e);
-            throw new RuntimeException('URLから内容を取得できませんでした。');
+            throw new RuntimeException(__('messages.files.url_failed'));
         }
 
         $html = mb_substr($response->body(), 0, 1_000_000);
@@ -51,7 +51,7 @@ class TextExtractor
             return (new Parser)->parseFile($path)->getText();
         } catch (\Throwable $e) {
             report($e);
-            throw new RuntimeException('PDFから本文を抽出できませんでした。');
+            throw new RuntimeException(__('messages.files.pdf_failed'));
         }
     }
 
@@ -59,14 +59,14 @@ class TextExtractor
     {
         $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
-            throw new RuntimeException('Wordファイルを開けませんでした。');
+            throw new RuntimeException(__('messages.files.word_open_failed'));
         }
 
         $xml = $zip->getFromName('word/document.xml');
         $zip->close();
 
         if ($xml === false) {
-            throw new RuntimeException('Wordファイルの本文が見つかりませんでした。');
+            throw new RuntimeException(__('messages.files.word_empty'));
         }
 
         $xml = str_replace(['</w:p>', '</w:tr>', '<w:br/>', '<w:tab/>'], ["\n", "\n", "\n", "\t"], $xml);
@@ -80,7 +80,7 @@ class TextExtractor
             $spreadsheet = IOFactory::load($path);
         } catch (\Throwable $e) {
             report($e);
-            throw new RuntimeException('Excelファイルを読み取れませんでした。');
+            throw new RuntimeException(__('messages.files.excel_failed'));
         }
 
         $sections = [];
@@ -129,7 +129,7 @@ class TextExtractor
     {
         $text = file_get_contents($path);
         if ($text === false) {
-            throw new RuntimeException('テキストファイルを読み取れませんでした。');
+            throw new RuntimeException(__('messages.files.text_failed'));
         }
 
         if (! mb_check_encoding($text, 'UTF-8')) {

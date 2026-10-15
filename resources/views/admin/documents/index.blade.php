@@ -5,7 +5,7 @@
 @section('content')
     <header class="page-head">
         <h1>資料アップロード</h1>
-        <p class="lead">PDF、Word（.docx）、テキスト、またはURLを登録します。ファイルはS3へ保存し、本文を分割してPineconeへ送ります。候補者のチャットは、この資料を根拠に回答します。</p>
+        <p class="lead">PDF、Word（.docx）、テキスト、またはURLを登録できます。</p>
     </header>
 
     <form method="POST" action="{{ route('admin.documents.store') }}" enctype="multipart/form-data" class="card form-grid">
@@ -56,7 +56,7 @@
                         <td>{{ $document->chunk_count }}</td>
                         <td>{{ $document->created_at->translatedFormat('n月j日 H:i') }}</td>
                         <td>
-                            <form method="POST" action="{{ route('admin.documents.destroy', $document) }}" onsubmit="return confirm('この資料をS3とPineconeから削除します。よろしいですか？');">
+                            <form method="POST" action="{{ route('admin.documents.destroy', $document) }}" onsubmit="return confirm('この資料を削除します。よろしいですか？');">
                                 @csrf
                                 @method('DELETE')
                                 <button class="btn btn-danger" type="submit">削除</button>

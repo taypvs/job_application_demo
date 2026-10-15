@@ -29,12 +29,12 @@
         <p class="foot-link"><a href="{{ \App\Support\Portal::baseUrl(\App\Support\Portal::CANDIDATE) }}/login">候補者の方はこちら</a></p>
     @else
         <p class="foot-link"><a href="{{ route('register') }}">アカウントをお持ちでない方は新規登録</a></p>
-        <p class="foot-link"><a href="{{ \App\Support\Portal::baseUrl(\App\Support\Portal::ADMIN) }}/login">管理者の方はこちら</a></p>
+        <p class="foot-link"><a href="{{ \App\Support\Portal::baseUrl(\App\Support\Portal::ADMIN) }}/login">求人管理の方はこちら</a></p>
     @endif
     <aside class="demo">
         <p>デモアカウント（パスワードは password）</p>
         @if (\App\Support\Portal::isAdmin())
-            <p>管理者: admin@example.com</p>
+            <p>求人管理: admin@example.com</p>
         @else
             <p>候補者: user@example.com</p>
         @endif

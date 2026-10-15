@@ -9,9 +9,9 @@ use App\Models\JobPosting;
 use App\Models\JobSkill;
 use App\Models\MatchAnalysis;
 use App\Models\User;
-use App\Support\SkillMatcher;
 use App\Services\Ai\OpenAiClient;
 use App\Services\Ai\PromptLibrary;
+use App\Support\SkillMatcher;
 use Illuminate\Support\Collection;
 use RuntimeException;
 
@@ -26,11 +26,11 @@ class JobMatchingService
     {
         $cv = $user->currentCv();
         if (! $cv) {
-            throw new RuntimeException('職務経歴書をアップロードしてから分析してください。');
+            throw new RuntimeException(__('messages.matching.cv_required'));
         }
 
         if ($job->status !== JobStatus::Published) {
-            throw new RuntimeException('この求人は分析できません。');
+            throw new RuntimeException(__('messages.matching.unavailable'));
         }
 
         $job->loadMissing(['company', 'department', 'skills']);
@@ -40,7 +40,7 @@ class JobMatchingService
                 $result = $this->withOpenAi($job, $cv);
             } catch (\Throwable $e) {
                 report($e);
-                throw new RuntimeException('AI分析に失敗しました。APIキーと通信状況を確認してください。');
+                throw new RuntimeException(__('messages.matching.ai_failed'));
             }
         } else {
             $result = $this->local($job, $cv);
@@ -84,7 +84,7 @@ class JobMatchingService
 
         $data = json_decode($this->stripFence($raw), true);
         if (! is_array($data) || ! isset($data['score'])) {
-            throw new RuntimeException('AIの応答を解釈できませんでした。');
+            throw new RuntimeException(__('messages.matching.ai_unreadable'));
         }
 
         return [
@@ -105,10 +105,10 @@ class JobMatchingService
         if (trim((string) $cv->extracted_text) === '' && ($cv->parsed_profile['skills'] ?? []) === []) {
             return [
                 'score' => 0,
-                'summary' => '職務経歴書からテキストを抽出できなかったため、マッチ度を判定できません。',
+                'summary' => __('messages.matching.empty_summary'),
                 'strengths' => [],
-                'weaknesses' => ['職務経歴書の本文が空です。'],
-                'improvements' => ['テキストを選択できるPDF、または.docxで再アップロードしてください。'],
+                'weaknesses' => [__('messages.matching.empty_weakness')],
+                'improvements' => [__('messages.matching.empty_improvement')],
                 'engine' => 'local',
             ];
         }
@@ -125,25 +125,30 @@ class JobMatchingService
         $score = (int) round(($requiredRatio * 75) + ($niceRatio * 25));
 
         $strengths = array_map(
-            fn (string $skill) => "必須または歓迎スキル「{$skill}」が職務経歴から確認できます。",
+            fn (string $skill) => __('messages.matching.skill_hit', ['skill' => $skill]),
             array_merge($hitRequired, $hitNice),
         );
         $weaknesses = array_map(
-            fn (string $skill) => "必須スキル「{$skill}」が経歴から確認できません。",
+            fn (string $skill) => __('messages.matching.skill_miss', ['skill' => $skill]),
             $missRequired,
         );
         $improvements = array_map(
-            fn (string $skill) => "「{$skill}」の実務経験、または学習内容を職務経歴書に具体的に追記してください。",
+            fn (string $skill) => __('messages.matching.skill_improve', ['skill' => $skill]),
             array_merge($missRequired, $missNice),
         );
 
         if ($strengths === []) {
-            $strengths[] = '経歴本文は登録されています。求人スキルとの一致箇所を追記すると精度が上がります。';
+            $strengths[] = __('messages.matching.no_hits');
         }
 
         return [
             'score' => max(0, min(100, $score)),
-            'summary' => "キーワード照合による参考値です。必須スキルの一致は ".count($hitRequired).'/'.max($required->count(), 0)." 件、歓迎スキルの一致は ".count($hitNice).'/'.max($nice->count(), 0).' 件です。',
+            'summary' => __('messages.matching.local_summary', [
+                'required_hit' => count($hitRequired),
+                'required_total' => max($required->count(), 0),
+                'nice_hit' => count($hitNice),
+                'nice_total' => max($nice->count(), 0),
+            ]),
             'strengths' => array_slice($strengths, 0, 6),
             'weaknesses' => array_slice($weaknesses, 0, 6),
             'improvements' => array_slice($improvements, 0, 6),

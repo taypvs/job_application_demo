@@ -56,21 +56,7 @@ class SaveJobRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'company_id' => '会社',
-            'department_id' => '担当部署',
-            'title' => '募集タイトル',
-            'position' => '職種',
-            'employment_type' => '雇用形態',
-            'summary' => '概要',
-            'description' => '仕事内容',
-            'working_hours' => '勤務時間',
-            'location' => '勤務地',
-            'remote_policy' => '働き方',
-            'salary_min_man' => '年収下限',
-            'salary_max_man' => '年収上限',
-            'status' => '公開状態',
-        ];
+        return __('messages.attributes.job');
     }
 
     /**

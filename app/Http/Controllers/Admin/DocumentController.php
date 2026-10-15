@@ -34,8 +34,8 @@ class DocumentController extends Controller
         }
 
         $message = $document->status->value === 'indexed'
-            ? '資料をS3へ保存し、Pineconeへ登録しました。'
-            : '資料を保存しました。'.$document->note;
+            ? __('messages.documents.indexed')
+            : __('messages.documents.saved');
 
         return redirect()->route('admin.documents.index')->with('status', $message);
     }
@@ -48,6 +48,6 @@ class DocumentController extends Controller
             return back()->withErrors(['file' => $e->getMessage()]);
         }
 
-        return redirect()->route('admin.documents.index')->with('status', '資料をS3とPineconeから削除しました。');
+        return redirect()->route('admin.documents.index')->with('status', __('messages.documents.deleted'));
     }
 }

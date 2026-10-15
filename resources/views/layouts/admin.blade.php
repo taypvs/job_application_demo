@@ -27,7 +27,7 @@
             <div class="side-user">
                 <div>
                     <strong>{{ auth()->user()->name }}</strong>
-                    <small>管理者</small>
+                    <small>求人管理</small>
                 </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf

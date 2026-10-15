@@ -33,7 +33,7 @@ class KnowledgeIngestService
         [$text, $key, $sourceType, $originalName, $sourceUrl] = $this->capture($input, $file);
 
         if ($text === '') {
-            throw new RuntimeException('本文を抽出できませんでした。別のファイル、またはテキストが含まれるURLを指定してください。');
+            throw new RuntimeException(__('messages.documents.extract_failed'));
         }
 
         $document = KnowledgeDocument::create([
@@ -61,7 +61,7 @@ class KnowledgeIngestService
         if (! $this->openai->configured() || ! $this->pinecone->configured()) {
             $document->update([
                 'status' => DocumentStatus::Stored,
-                'note' => 'OpenAIまたはPineconeが未設定のため、本文はデータベースに保存しました。チャットは本文検索で回答します。',
+                'note' => __('messages.documents.note_stored'),
             ]);
 
             return $document->fresh();
@@ -77,7 +77,7 @@ class KnowledgeIngestService
             report($e);
             $document->update([
                 'status' => DocumentStatus::Failed,
-                'note' => 'Pineconeへの登録に失敗しました。本文はデータベースに残しています。',
+                'note' => __('messages.documents.note_index_failed'),
             ]);
         }
 
@@ -95,14 +95,14 @@ class KnowledgeIngestService
 
         if ($ids !== []) {
             if (! $this->pinecone->configured()) {
-                throw new RuntimeException('Pineconeが未設定のため、ベクトルを削除できません。');
+                throw new RuntimeException(__('messages.documents.pinecone_missing'));
             }
 
             try {
                 $this->pinecone->delete($ids);
             } catch (\Throwable $e) {
                 report($e);
-                throw new RuntimeException('Pineconeからの削除に失敗しました。資料は残しています。');
+                throw new RuntimeException(__('messages.documents.pinecone_delete_failed'));
             }
         }
 
@@ -129,7 +129,7 @@ class KnowledgeIngestService
         }
 
         if (! $file) {
-            throw new RuntimeException('ファイルを選択してください。');
+            throw new RuntimeException(__('messages.documents.file_required'));
         }
 
         $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
@@ -149,7 +149,7 @@ class KnowledgeIngestService
 
         $vectors = $this->openai->embedMany($chunks->pluck('content')->all());
         if (count($vectors) !== $chunks->count()) {
-            throw new RuntimeException('埋め込み件数と分割数が一致しません。');
+            throw new RuntimeException(__('messages.documents.embed_mismatch'));
         }
 
         $payload = [];

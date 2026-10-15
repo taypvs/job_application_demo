@@ -22,15 +22,13 @@ class UploadCvRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'file' => '職務経歴書',
-        ];
+        return __('messages.attributes.cv');
     }
 
     private function allowedCvFile(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            $message = 'PDF、Word（.docx）、Excel（.xlsx / .xls）、テキストのいずれかを選択してください。';
+            $message = __('messages.validation.cv_file');
 
             if (! $value instanceof UploadedFile) {
                 $fail($message);

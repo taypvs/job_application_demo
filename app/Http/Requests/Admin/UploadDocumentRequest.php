@@ -23,20 +23,15 @@ class UploadDocumentRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'title' => '資料名',
-            'source_type' => '種別',
-            'file' => 'ファイル',
-            'url' => 'URL',
-        ];
+        return __('messages.attributes.document');
     }
 
     public function messages(): array
     {
         return [
-            'file.mimes' => 'PDF、Word（.docx）、テキストのいずれかを選択してください。',
-            'file.required_if' => 'ファイルを選択してください。',
-            'url.required_if' => 'URLを入力してください。',
+            'file.mimes' => __('messages.validation.document_mimes'),
+            'file.required_if' => __('messages.validation.document_file_required'),
+            'url.required_if' => __('messages.validation.document_url_required'),
         ];
     }
 }

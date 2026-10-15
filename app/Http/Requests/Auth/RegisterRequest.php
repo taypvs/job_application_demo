@@ -22,10 +22,6 @@ class RegisterRequest extends FormRequest
 
     public function attributes(): array
     {
-        return [
-            'name' => '氏名',
-            'email' => 'メールアドレス',
-            'password' => 'パスワード',
-        ];
+        return __('messages.attributes.register');
     }
 }

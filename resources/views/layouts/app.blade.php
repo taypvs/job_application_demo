@@ -39,7 +39,7 @@
             <div class="side-user">
                 <div>
                     <strong>{{ auth()->user()->name }}</strong>
-                    <small>{{ auth()->user()->isAdmin() ? '管理者' : '候補者' }}</small>
+                    <small>{{ auth()->user()->isAdmin() ? '求人管理' : '候補者' }}</small>
                 </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
