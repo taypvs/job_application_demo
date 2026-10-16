@@ -18,19 +18,19 @@ class AccountSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(['email' => 'admin@example.com'], [
-            'name' => '管理 太郎',
+            'name' => '管理者1',
             'password' => 'password',
             'role' => UserRole::Admin,
         ]);
 
         User::updateOrCreate(['email' => 'user@example.com'], [
-            'name' => '山田 花子',
+            'name' => 'ユーザー1',
             'password' => 'password',
             'role' => UserRole::Candidate,
         ]);
 
         $candidate = User::updateOrCreate(['email' => 'yamada@example.com'], [
-            'name' => '山田 太郎',
+            'name' => 'ユーザー2',
             'password' => 'password',
             'role' => UserRole::Candidate,
         ]);
@@ -75,7 +75,7 @@ class AccountSeeder extends Seeder
                     '株式会社カナルの「Webシステムエンジニア」について、面接日程が確定しました。',
                     '',
                     '日時: '.$interview->starts_at->translatedFormat('Y年n月j日（D）H:i').'〜'.$interview->ends_at->format('H:i'),
-                    '担当: 佐藤 健一（開発部 / エンジニアリングマネージャー）',
+                    '担当: '.$manager->name.'（開発部 / エンジニアリングマネージャー）',
                     '形式: オンライン',
                 ]),
             ],
