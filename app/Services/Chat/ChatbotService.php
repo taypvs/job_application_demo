@@ -55,6 +55,11 @@ class ChatbotService
 
     private function answer(User $user, string $message): string
     {
+        $greeting = $this->greetingReply($message);
+        if ($greeting !== null) {
+            return $greeting;
+        }
+
         if (DocumentChunk::query()->doesntExist()) {
             return __('messages.chat.no_documents');
         }
@@ -65,7 +70,12 @@ class ChatbotService
 
         $ranked = $this->rankLocal($message);
         if ($this->openai->configured()) {
-            return $this->answerWithContext($user, $message, $this->contextFromChunks($ranked->take(4)));
+            $context = $this->contextFromChunks($ranked->take(4));
+            if ($context === '') {
+                return __('messages.chat.no_match');
+            }
+
+            return $this->answerWithContext($user, $message, $context);
         }
 
         return $this->extractive($ranked);
@@ -116,6 +126,10 @@ class ChatbotService
 
         if ($blocks === []) {
             $fallback = $this->contextFromChunks($this->rankLocal($message)->take(3));
+            if ($fallback === '') {
+                return __('messages.chat.no_match');
+            }
+
             $blocks[] = $fallback;
             $log->info('chatbot.pinecone.fallback', [
                 'user_id' => $user->id,
@@ -210,6 +224,48 @@ class ChatbotService
             ->filter(fn (DocumentChunk $chunk) => ($chunk->rank_score ?? 0) > 0)
             ->map(fn (DocumentChunk $chunk) => "[{$chunk->document?->title}]\n{$chunk->content}")
             ->implode("\n\n");
+    }
+
+    private function greetingReply(string $message): ?string
+    {
+        $normalized = mb_strtolower(trim($message));
+        if ($normalized === '' || preg_match('/[?？]/u', $normalized) === 1) {
+            return null;
+        }
+
+        $tokens = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens === [] || count($tokens) > 4) {
+            return null;
+        }
+
+        $replies = [
+            'hi' => 'messages.chat.greeting',
+            'hello' => 'messages.chat.greeting',
+            'hey' => 'messages.chat.greeting',
+            'yo' => 'messages.chat.greeting',
+            'goodafternoon' => 'messages.chat.greeting',
+            'こんにちは' => 'messages.chat.greeting',
+            'こんにちわ' => 'messages.chat.greeting',
+            'やあ' => 'messages.chat.greeting',
+            'どうも' => 'messages.chat.greeting',
+            'はじめまして' => 'messages.chat.greeting',
+            '初めまして' => 'messages.chat.greeting',
+            'よろしく' => 'messages.chat.greeting',
+            'よろしくお願いします' => 'messages.chat.greeting',
+            'goodmorning' => 'messages.chat.greeting_morning',
+            'おはよう' => 'messages.chat.greeting_morning',
+            'おはようございます' => 'messages.chat.greeting_morning',
+            'goodevening' => 'messages.chat.greeting_evening',
+            'こんばんは' => 'messages.chat.greeting_evening',
+            'お疲れ様' => 'messages.chat.greeting',
+            'お疲れさま' => 'messages.chat.greeting',
+            'お疲れ様です' => 'messages.chat.greeting',
+            'お疲れさまです' => 'messages.chat.greeting',
+        ];
+
+        $key = $replies[implode('', $tokens)] ?? null;
+
+        return $key === null ? null : __($key);
     }
 
     private function historyText(User $user): string
