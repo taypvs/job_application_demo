@@ -5,25 +5,17 @@
 @section('content')
     <header class="page-head">
         <h1>資料アップロード</h1>
-        <p class="lead">PDF、Word（.docx）、テキスト、またはURLを登録できます。</p>
+        <p class="lead">PDF、Word（.docx）、テキストをアップロードできます。</p>
     </header>
 
     <form method="POST" action="{{ route('admin.documents.store') }}" enctype="multipart/form-data" class="card form-grid">
         @csrf
+        <input type="hidden" name="source_type" value="file">
         <label>資料名
             <input type="text" name="title" value="{{ old('title') }}" required>
         </label>
-        <label>種別
-            <select name="source_type" required>
-                <option value="file" @selected(old('source_type', 'file') === 'file')>ファイル</option>
-                <option value="url" @selected(old('source_type') === 'url')>URL</option>
-            </select>
-        </label>
         <label>ファイル
-            <input type="file" name="file" accept=".pdf,.docx,.txt,application/pdf,text/plain">
-        </label>
-        <label class="wide">URL
-            <input type="url" name="url" value="{{ old('url') }}" placeholder="https://">
+            <input type="file" name="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" required>
         </label>
         <div class="wide">
             <button class="btn btn-primary" type="submit" data-loading="登録中…">登録する</button>
